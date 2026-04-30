@@ -1,0 +1,88 @@
+//BMP180 header files - 고도 센서
+#include <BMP180.h>
+#include <BMP180DEFS.h>
+#include <MetricSystem.h>
+
+//HC12 header files - 통신모듈
+#include <SoftwareSerial.h> 
+SoftwareSerial HC12(2, 3); // 아두이노 2번을 HC-12 TX Pin에 연결, 3번을 HC-12 RX Pin에 연결.
+BMP180 bmp180;
+
+//BNO055 header files - 자이로모듈
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BNO055.h>
+#include <utility/imumaths.h>
+
+//전역변수
+Adafruit_BNO055 bno = Adafruit_BNO055(55);
+int status=false;
+
+void setup() { 
+//BMP180 setup
+  Serial.begin(9600);
+    if (!bmp180.begin()) //indicates if BMP180 is not connected correctly
+    {
+        Serial.println("BMP180 not found!");
+        while (1);
+    }
+//HC12 setup
+  Serial.begin(9600); // 시리얼포트 ↔ computer 
+  HC12.begin(9600);   // 시리얼포트 ↔ HC12 
+  Serial.println("This is 'B' HC-12 Module");
+//BNO055 setup - initialize sensor
+  if(!bno.begin())
+  {
+    Serial.print("NO BNO055 DETECTED! ... Check your wiring or I2C ADDR!");
+    while(1);
+  }
+  delay(1000);
+  bno.setExtCrystalUse(true);
+} 
+
+void loop() { 
+
+  // HC12를 통해 데이터를 발송
+  while (status=true) { 
+    //BMP180 Data Tx
+    String BMP180temp = String(bmp180.readTemperature(), 4);
+    String BMP180Pres = String(bmp180.readPressure(), 4);
+    String BMP180Alti = String(bmp180.readAltitude(), 4);
+    HC12.print(BMP180temp);
+    HC12.println(" °C");
+    HC12.print(BMP180Pres);
+    HC12.println(" Pa");
+    HC12.print(BMP180Alti);
+    HC12.println(" m");
+    delay(200);
+    sensors_event_t event;
+    bno.getEvent(&event);
+    //BNO055 - Get a new sensor event
+    imu::Vector<3> LACC = bno.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
+    //BNO055 Data Tx
+    //Gyro - degree
+    String GyroX = String(event.orientation.x,2);
+    String GyroY = String(event.orientation.y,2);
+    String GyroZ = String(event.orientation.z,2);
+    HC12.print("X: ");
+    HC12.print(GyroX);
+    HC12.print("    Y: ");
+    HC12.print(GyroY);
+    HC12.print("    Z: ");
+    HC12.println(GyroZ);
+    //Acceraltion
+    HC12.print("AccX: ");
+    HC12.print(LACC.x());
+    HC12.print("    AccY: ");
+    HC12.print(LACC.y());
+    HC12.print("    AccZ: ");
+    HC12.println(LACC.z());
+    delay(1000);
+  } 
+  // HC12모듈이 받은 데이터가 있을 경우 시리얼모니터로 출력
+  while (HC12.available()) { 
+    String input = HC12.readString();
+    Serial.println(input);
+  } 
+  delay (20);
+}
